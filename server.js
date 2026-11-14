@@ -7,6 +7,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Database = require("better-sqlite3");
 const path = require("path");
+const fs = require("fs");
 
 try { process.loadEnvFile && process.loadEnvFile(); } catch (_) {} // Node 20.12+ reads .env
 
@@ -55,7 +56,7 @@ const q = {
 };
 
 // ---------- helpers ----------
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+const EMAIL_RE = /^[^\s@]{1,64}@[^^\s@]{1,255}\.[^\s@]{2,}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const OUT_CATS = ["med", "drug", "food", "house", "bill", "trip", "fam", "oth"];
 const IN_CATS = ["sal", "pen", "gift", "oth"];
@@ -133,6 +134,15 @@ app.put("/api/data", auth, (req, res) => {
 app.delete("/api/account", auth, (req, res) => { q.delUser.run(req.uid); res.json({ ok: true }); });
 
 app.use(express.static(path.join(__dirname, "public")));
+// Serve the checked-in root index.html. Hide the dashboard and navigation while
+// the existing login modal is open, so the first screen contains login only.
+app.get("/", (_req, res, next) => {
+  fs.readFile(path.join(__dirname, "index.html"), "utf8", (err, html) => {
+    if (err) return next(err);
+    const loginOnlyStyle = '<style>body:has(#auth.on) #app,body:has(#auth.on) #nav{display:none!important}</style>';
+    res.type("html").send(html.replace("</head>", loginOnlyStyle + "</head>"));
+  });
+});
 app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: "Server error" }); });
 
 app.listen(PORT, () => console.log("Money Tracker running on port " + PORT));
